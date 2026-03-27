@@ -12,6 +12,9 @@ volumes:
 # port 8081: Seq Web UI
 # port 5432: PostgreSQL
 # port 6379: Redis
+# port 5000: SkillTracker Web API
+# port 8082: Centrifugo API
+# port 8083: Centrifugo Web UI
 
 services:
   # Mailpit
@@ -91,3 +94,41 @@ services:
     restart: unless-stopped
     tty: true
     stdin_open: true
+  # SkillTracker Web API
+  skilltracker-webapi:
+    image: vga815/skilltracker-webapi:dev
+    container_name: skilltracker-webapi
+    depends_on:
+      - main-db
+      - redis
+      - minio
+      - mailpit
+      - seq
+    ports:
+      - 5000:8080
+    environment:
+        ASPNETCORE_ENVIRONMENT: Development
+        ConnectionStrings__Database: ${POSTGRES_CONNECTION_STRING}
+        JWT__Secret: ${JWT_SECRET_KEY}
+        JWT__Issuer: ${JWT_ISSUER}
+        JWT__Audience: ${JWT_AUDIENCE}
+        Minio__AccessKey: ${MINIO_ACCESS_KEY}
+        Minio__SecretKey: ${MINIO_SECRET_KEY}
+        Minio__PubEndpoint: ${MINIO_PUB_ENDPOINT}
+        Redis__ConnectionString: ${REDIS_CONNECTION_STRING}
+        Smtp__Username: ${SMTP_USERNAME}
+        Centrifugo__ApiKey: ${CENTRIFUGO_API_KEY}
+  # Centrifugo
+  centrifugo:
+    container_name: centrifugo
+    image: centrifugo/centrifugo:v5
+    volumes:
+      - ./config/centrifugo/config.json:/centrifugo/config.json
+    command: centrifugo -c config.json --api_insecure --swagger
+    ports:
+      - 8082:8000
+      - 8083:8001
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
